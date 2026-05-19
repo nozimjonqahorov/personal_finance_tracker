@@ -66,7 +66,7 @@
 ### 1. Repozitoriyani yuklab oling
 
 ```bash
-git clone https://github.com/nozimjonqahorov/exam_month5_najot.git
+git clone https://github.com/nozimjonqahorov/personal_finance_tracker
 cd personal_finance_tracker
 ```
 
