@@ -61,7 +61,7 @@
 
 ---
 
-## 💻 O'rnatish
+### 💻 O'rnatish 
 
 ### 1. Repozitoriyani yuklab oling
 
