@@ -3,8 +3,10 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-        <a href="{% url 'create_transfer' %}" class="btn btn-primary">+ Yangi transfer</a>
-    </div>
+    <a href="{% url 'create_transfer' %}" class="btn btn-primary fw-bold rounded-pill px-4 py-2 shadow-sm">
+        <i class="bi bi-plus-lg me-2"></i>+ Yangi transfer
+    </a>
+</div>
 
 
 <div class="filter-section mb-4 p-3 bg-white rounded shadow-sm">
@@ -35,6 +37,17 @@
             <a href="{% url 'transfer_list' %}" class="btn btn-light btn-sm rounded-pill px-3">
                 <i class="bi bi-arrow-counterclockwise me-1"></i>Tozalash
             </a>
+
+            <button
+                type="submit"
+                name="export"
+                value="pdf"
+                class="btn btn-outline-danger btn-sm rounded-pill px-4"
+                title="Current filters bilan PDF chiqarish"
+            >
+                <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+            </button>
+
             <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4">
                 <i class="bi bi-funnel me-1"></i>Filtrlash
             </button>
@@ -60,8 +73,10 @@
 </style>
 
 
-<div class="container mt-4" style="max-width: 600px;">
-    <h4 class="mb-4 fw-bold text-secondary text-center">O'tkazmalar tarixi</h4>
+<div class="container mt-4 px-2" style="max-width: 760px;">
+    <h4 class="mb-4 fw-extrabold text-center" style="color:#0f172a; letter-spacing:0.2px;">
+        O'tkazmalar tarixi
+    </h4>
 
     <div class="transfer-list">
         {% for t in transfers %}
@@ -102,19 +117,107 @@
         </div>
         {% endfor %}
     </div>
+
+    {% if transfers.paginator.num_pages > 1 %}
+        <div class="d-flex justify-content-center mt-4">
+            <div class="bg-white rounded-4 shadow-sm border px-3 py-2" style="max-width: 320px; width: 100%;">
+                <nav aria-label="Transfer pagination">
+                <ul class="pagination pagination-sm mb-0 justify-content-center">
+                    {% if transfers.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="{% url 'transfer_list' %}{% if querystring_no_page %}?{{ querystring_no_page }}&{% else %}?{% endif %}page={{ transfers.previous_page_number }}">
+                                Oldingi
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">Oldingi</span></li>
+                    {% endif %}
+
+                    {% for num in transfers.paginator.page_range %}
+                        {% if num == transfers.number %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num >= transfers.number|add:'-2' and num <= transfers.number|add:'2' %}
+                            <li class="page-item">
+                                <a class="page-link" href="{% url 'transfer_list' %}{% if querystring_no_page %}?{{ querystring_no_page }}&{% else %}?{% endif %}page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% elif num == 1 or num == transfers.paginator.num_pages %}
+                            <li class="page-item">
+                                <a class="page-link" href="{% url 'transfer_list' %}{% if querystring_no_page %}?{{ querystring_no_page }}&{% else %}?{% endif %}page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if transfers.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{% url 'transfer_list' %}{% if querystring_no_page %}?{{ querystring_no_page }}&{% else %}?{% endif %}page={{ transfers.next_page_number }}">
+                                Keyingi
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">Keyingi</span></li>
+                    {% endif %}
+                </ul>
+                </nav>
+            </div>
+        </div>
+    {% endif %}
 </div>
 
 <style>
     .transfer-card {
-        border-left: 4px solid #0d6efd; /* Transferni bildiruvchi ko'k chiziq */
+        border-left: 4px solid #0d6efd;
         transition: 0.2s;
+        border: 1px solid rgba(15, 23, 42, 0.08);
     }
     .transfer-card:hover {
         background-color: #f8f9fa !important;
-        transform: scale(1.01);
+        transform: translateY(-1px);
+        box-shadow: 0 10px 25px rgba(13,110,253,0.10);
+    }
+    .icon-box {
+        width: 48px;
+        height: 48px;
     }
     .icon-box i {
-        font-size: 1.2rem;
+        font-size: 1.15rem;
+    }
+
+    /* Pagination style (kezi/rasmga mos) */
+    .pagination .page-link {
+        border-radius: 10px !important;
+        font-weight: 700;
+        border: 1px solid #dee2e6;
+        color: #0d6efd;
+        padding: 0.35rem 0.6rem;
+        background: #fff;
+    }
+    .pagination .page-item.active .page-link {
+        background: #0d6efd !important;
+        border-color: #0d6efd !important;
+        color: #fff !important;
+        box-shadow: 0 6px 18px rgba(13,110,253,0.25);
+    }
+    .pagination .page-link:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 24px rgba(13,110,253,0.15);
+    }
+    .pagination .page-item.disabled .page-link {
+        color: #adb5bd !important;
+        background: #fff !important;
+        border-color: #dee2e6 !important;
+    }
+
+    /* Mobile: matnlar siqilmasin */
+    @media (max-width: 576px) {
+        .transfer-card {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 10px;
+        }
+        .transfer-card .text-end {
+            width: 100%;
+            text-align: left !important;
+        }
     }
 </style>
 {% endblock %}

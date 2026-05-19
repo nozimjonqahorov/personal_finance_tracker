@@ -3,12 +3,15 @@ from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .forms import AccountCreateForm, TransferCreateForm
 from .models import Account, Transfer
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from transactions.models import Transaction
 from shared.utils import get_exchange_rates, convert_currency
-from decimal import Decimal
 from django.contrib import messages
 from django.db import transaction
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+
 
 
 class AccountListView(LoginRequiredMixin, View):
@@ -73,7 +76,11 @@ class AccountDeleteView(LoginRequiredMixin, View):
 
 class TransferListView(LoginRequiredMixin, View):
     def get(self, request):
-        transfers = Transfer.objects.filter(from_account__user = request.user).all().order_by("-date")
+        transfers = (
+            Transfer.objects.filter(Q(from_account__user=request.user) | Q(to_account__user=request.user))
+            .all()
+            .order_by("-date")
+        )
 
         min_summa = request.GET.get("min_summa")
         max_summa = request.GET.get("max_summa")
@@ -89,9 +96,44 @@ class TransferListView(LoginRequiredMixin, View):
         if to_date:
             transfers = transfers.filter(date__lte=to_date)
 
+        if request.GET.get("export") == "pdf":
+            html_string = render_to_string(
+                "transfer_list_pdf.html", {"transfers": transfers}
+            )
+
+            try:
+                from weasyprint import HTML
+            except Exception as e:
+                return HttpResponse(
+                    f"PDF export is unavailable because WeasyPrint dependencies are not installed/configured on this system. Import error: {e}",
+                    status=500,
+                )
+
+            response = HttpResponse(content_type="application/pdf")
+            response["Content-Disposition"] = '''attachment; filename="o'tkazmalar_hisoboti.pdf"'''
+
+            HTML(string=html_string, base_url=request.build_absolute_uri("/")).write_pdf(response)
+            return response
+
+        items_per_page = 10
+        paginator = Paginator(transfers, items_per_page)
+        
+        # hozirgi urldan page number ni olamiz
+        page_number = request.GET.get('page')
+        
+        try:
+            # Tanlangan page-ni objectlarini qaytaramiz
+            transfers = paginator.get_page(page_number)
+        except PageNotAnInteger:
+            transfers = paginator.page(1)                           
+        except EmptyPage:
+            transfers = paginator.page(paginator.num_pages) # bizda yuq sahifani surasa oxirgi sahifani qaytaramiz
         
 
-        return render(request, "transfer_list.html", {"transfers":transfers})
+        query_params = request.GET.copy()
+        query_params.pop("page", None)
+
+        return render(request, "transfer_list.html", {"transfers": transfers, "querystring_no_page": query_params.urlencode()})
 
 
 
@@ -147,12 +189,3 @@ class MakeTransafer(LoginRequiredMixin, View):
             "form": form, 
             "user_accounts": user_accounts
         })
-         
-
-            
-                
-
-
-
-
-        

@@ -1,14 +1,13 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
-from transactions.models import Category # Faqat Category-ni olamiz
+from transactions.models import Category 
 
 User = get_user_model()
 
 @receiver(post_save, sender=User)
 def create_user_categories(sender, instance, created, **kwargs):
     if created:
-        # Faqat siz aytgan default kategoriyalar
         default_categories = [
             ('oziq-ovqat', 'xarajat'),
             ('kiyim', 'xarajat'),

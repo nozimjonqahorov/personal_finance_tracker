@@ -42,8 +42,18 @@
                 {{ field }}
             </div>
         {% endfor %}
-        <div class="col-12 text-end">
+        <div class="col-12 text-end d-flex justify-content-end gap-2">
             <a href="{% url 'transaction_main' %}" class="btn btn-light btn-sm">Tozalash</a>
+
+            <button
+                type="submit"
+                name="export"
+                value="pdf"
+                class="btn btn-outline-danger btn-sm px-4"
+                title="Joriy filtrlar bo‘yicha PDF">
+                PDF
+            </button>
+
             <button type="submit" class="btn btn-primary btn-sm px-4">Qidirish</button>
         </div>
     </form>
@@ -116,6 +126,45 @@
                         </tbody>
                     </table>
                 </div>
+
+                {% if page_obj.paginator.num_pages > 1 %}
+                    <div class="card-footer bg-white border-top d-flex justify-content-center align-items-center py-3">
+                        <nav aria-label="Pagination">
+                            <ul class="pagination mb-0">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                    <a class="page-link" href="{% url 'transaction_main' %}{% if querystring_no_page %}?{{ querystring_no_page }}&{% else %}?{% endif %}page={{ page_obj.previous_page_number }}">Oldingi</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">Oldingi</span></li>
+                                {% endif %}
+
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if num == page_obj.number %}
+                                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                    {% elif num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="{% url 'transaction_main' %}{% if querystring_no_page %}?{{ querystring_no_page }}&{% else %}?{% endif %}page={{ num }}">{{ num }}</a>
+                                        </li>
+                                    {% elif num == 1 or num == page_obj.paginator.num_pages %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="{% url 'transaction_main' %}{% if querystring_no_page %}?{{ querystring_no_page }}&{% else %}?{% endif %}page={{ num }}">{{ num }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{% url 'transaction_main' %}{% if querystring_no_page %}?{{ querystring_no_page }}&{% else %}?{% endif %}page={{ page_obj.next_page_number }}">Keyingi</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">Keyingi</span></li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                {% endif %}
+
             </div>
         </div>
     </div>
@@ -182,9 +231,13 @@
 </script>
 {% endif %}
 <script>document.addEventListener('DOMContentLoaded', function() {
-    // Filtr elementlarini tanlaymiz
-    const filterType = document.getElementById('id_type');
-    const filterCategory = document.getElementById('id_category');
+    // Yangi tranzaksiya qo'shish MODAL ichidagi elementlarni tanlaymiz
+    // (Saytda id_type va id_category ikki marta bo'ladi: filtrlash qismi + modal.
+    // Shuning uchun faqat modalni scoped qilib olamiz.)
+    const modalEl = document.getElementById('transactionModal');
+    // id'lar duplicated/variant bo'lishi mumkin, shuning uchun name orqali topamiz
+    const filterType = modalEl ? modalEl.querySelector('select[name="type"]') : null;
+    const filterCategory = modalEl ? modalEl.querySelector('select[name="category"]') : null;
 
     // Kategoriyalar ma'lumotlari
     const categoryData = [
@@ -196,31 +249,48 @@
     function filterNow() {
         if (!filterType || !filterCategory) return;
 
-        const selectedType = filterType.value.toLowerCase();
-        // Hozirgi tanlangan kategoriya ID sini saqlaymiz (refreshdan keyin yo'qolmasligi uchun)
-        const currentSelectedId = filterCategory.value;
+        const selectedText = (filterType.selectedOptions && filterType.selectedOptions[0]
+            ? filterType.selectedOptions[0].text
+            : filterType.value || ""
+        ).toString().trim().toLowerCase();
 
-        // Ro'yxatni tozalash
+        const selectedType = selectedText.includes("daromad")
+            ? "daromad"
+            : (selectedText.includes("xarajat") ? "xarajat" : selectedText);
+        const previousSelectedId = filterCategory.value;
+
         filterCategory.innerHTML = '<option value="">---------</option>';
 
-        // Tanlangan turga mos kategoriyalarni qo'shish
+        console.log("JS filterNow:", { selectedType, selectedText, categoryCount: categoryData.length });
+
         categoryData.forEach(cat => {
-            if (selectedType === "" || cat.type === selectedType) {
+            const catType = (cat.type || "").toString().trim().toLowerCase();
+            // bitta modal open uchun ko‘p spam qilmaslik uchun faqat mos keladiganlari loglaymiz
+            if (selectedType !== "" && catType === selectedType) {
+                console.log("  cat match:", { id: cat.id, name: cat.name, catType });
                 const option = new Option(cat.name, cat.id);
                 filterCategory.add(option);
             }
         });
 
-        // Tanlangan qiymatni qayta tiklash
-        filterCategory.value = currentSelectedId;
+        // Agar oldingi tanlov filtrdan keyin qolmagan bo'lsa, uni majburan tiklamaymiz
+        const stillExists = Array.from(filterCategory.options).some(opt => opt.value === previousSelectedId);
+        filterCategory.value = stillExists ? previousSelectedId : "";
     }
 
     if (filterType) {
         // 1. Foydalanuvchi turni o'zgartirganda ishlaydi
         filterType.addEventListener('change', filterNow);
-        
-        // 2. Sahifa yuklanganda (qidiruvdan keyin) darhol ishlaydi
-        filterNow();
+
+        // 2. Modal ochilganda (select value tayyor bo‘lganda) darhol moslab beramiz
+        if (window.bootstrap && modalEl) {
+            modalEl.addEventListener('shown.bs.modal', filterNow);
+        } else if (modalEl) {
+            modalEl.addEventListener('shown', filterNow);
+        }
+
+        // 3. Initial urinishni olib tashlaymiz:
+        // filtr faqat modal ochilganda (shown event) va type change da ishlasin.
     }
 });
 </script>

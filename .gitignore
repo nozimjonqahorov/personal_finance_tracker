@@ -1,7 +1,8 @@
-# .gitignore ichiga qo'shing:
 db.sqlite3
 venv/
 __pycache__/
 *.pyc
 .env
 media/
+.venv/
+.sixth/
